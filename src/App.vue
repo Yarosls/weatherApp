@@ -1,5 +1,4 @@
 <script>
-
 export default({
   name: "App",
   data() {
@@ -10,12 +9,14 @@ export default({
             date: this.currentDate(),
             city: "Kyiv",
             degree: "-",
+            gif: "" , 
           },
           { 
-            id: 1,
+            id: 2,
             date: this.currentDate(),
             city: "Lviv",
             degree: "-",
+            gif: "",
           },
         ],
         cities: [
@@ -29,75 +30,120 @@ export default({
           },
         ],
       time: this.currentTime(),
-      nextId: 2,
+      nextId: 1,
       searchCity: "",
       latitude: null,
       longitude: null,
       cityIsExist: false,
       cityIsUnknown: false,
       activeColor: 'red',
+      filter: "",
+      gifPath: "-",
       urlKyiv: "https://api.open-meteo.com/v1/forecast?latitude=50.45&longitude=30.52&hourly=temperature_2m,weathercode&timezone=Africa%2FCairo",
       urlLviv: "https://api.open-meteo.com/v1/forecast?latitude=49.84&longitude=24.02&hourly=weathercode,temperature_120m,temperature_180m&timezone=Europe%2FBerlin",
 
     }
   },
   methods: {
-      async addNewCity(){
-        const newWeather = {
-          date: this.currentDate(),
-          city: this.searchCity,
-          degree: '-'
-        };
+    async addNewCity(){
+      const newWeather = {
+        date: this.currentDate(),
+        city: this.searchCity,
+        degree: '-',
+        gif: this.gifPath,
+      };
 
-        if(this.searchCity == ""){
+
+      if(this.searchCity == ""){
+        return
+      };
+
+      const coordinate = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${newWeather.city}&count=1`
+      )
+      const cityData = await coordinate.json();
+      
+      if(cityData.results == undefined){
+          this.unknownCity()
+          this.searchCity = "";
+          return 
+      } 
+      else if(this.weathers.find(city => city.city == cityData.results[0].name )){
+          this.existedCity()
           return
-        };
-        
-        
-        localStorage.setItem("weatherInChoosenCity", JSON.stringify(this.weathers))
-
-        if(this.existedCity(newWeather.city)){
-          return
-        }
+      }
+      else{
+          newWeather.city = cityData.results[0].name
+          this.latitude = cityData.results[0].latitude
+          this.longitude = cityData.results[0].longitude
       
-        const coordinate = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/search?name=${newWeather.city}&count=1`
-        )
-        const cityData = await coordinate.json();
-        
-        if(cityData.results == undefined){
-            this.unknownCity()
-            this.searchCity = "";
-            return 
-        }  
-        else{
-            newWeather.city = cityData.results[0].name
-            this.latitude = cityData.results[0].latitude
-            this.longitude = cityData.results[0].longitude
-        
-            console.log(this.latitude, this.longitude)
-            const normalCity =  this.normalizeCityName(newWeather.city)
-            newWeather.city = normalCity
+          const normalCity =  this.normalizeCityName(newWeather.city)
+          newWeather.city = normalCity
 
-            this.weathers.push(newWeather)
-        }
-      
+          this.weathers.push(newWeather)
+          this.filter = ""
+      }
+    
 
 
-      
+  
       const f = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${this.latitude}&longitude=${this.longitude}&hourly=temperature_2m,weathercode&timezone=Africa%2FCairo`
       );
       const data = await f.json();
-      const createdDegree = this.weathers[this.weathers.length - 1];
-      createdDegree.degree = `${Math.floor(data.hourly.temperature_2m[this.currentTime()])} °C`
+      const lastCity = this.weathers[this.weathers.length - 1];
+      console.log("minin", lastCity)
+      lastCity.degree = `${Math.floor(data.hourly.temperature_2m[this.currentTime()])} °C`
       
-      console.log(data);
+      const weatherCode = data.hourly.weathercode[this.currentTime()]
 
-      
+      this.getCodePath(weatherCode)
+      lastCity.gif = weatherCode
+      console.log("pokazis", weatherCode);
+    
       this.searchCity = "";
       this.latitude = null;
       this. longitude = null;
+
+      localStorage.setItem("weatherInChoosenCity", JSON.stringify(this.weathers))
+    },
+
+
+    async getCodePath(weatherCode){
+      await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${this.latitude}&longitude=${this.longitude}&weathercode&timezone=Africa%2FCairo`
+      )
+      .then((response) => {return response.json()}) 
+      .then ((data) => {console.log("dtaa", data)})
+
+
+
+
+
+
+      if(weatherCode == 1 || weatherCode == 2){
+        return this.gifPath = "./gifs/2.gif"
+      } 
+      if(weatherCode == 45 || weatherCode == 48){
+        return this.gifPath = "./gifs/45.gif"
+      } 
+      if(weatherCode == 51 || weatherCode == 5|| weatherCode == 55){
+        return this.gifPath = "./gifs/53.gif"
+      } 
+      if(weatherCode == 63 || weatherCode == 65){
+        return this.gifPath = "./gifs/63.gif"
+      } 
+      if(weatherCode == 71 || weatherCode == 73 || weatherCode == 75){
+        return this.gifPath = "./gifs/73.gif"
+      }
+      if(weatherCode == 80 || weatherCode == 81 || weatherCode == 82){
+        return  this.gifPath = "./gifs/63.gif"
+      }
+      else{
+        this.gifPath = `./gifs/${weatherCode}.gif`
+        return this.gifPath
+      }
+      
     },
 
 
@@ -108,17 +154,14 @@ export default({
     },
 
 
-    existedCity(city){
-      for(let i = 0; i <= this.weathers.length - 1; i++){
-        
-          if(this.weathers[i].city == city){
-            this.cityIsExist = true
-            setTimeout((() => {this.cityIsExist = false}), 1000)
-            this.searchCity = "";
-            return true
-        }
-      }
+    existedCity(){    
+        this.cityIsExist = true
+        setTimeout((() => {this.cityIsExist = false}), 1000)
+        this.searchCity = "";
+        return 
     },
+
+
 
 
     deleteCity(weatherToDelete){
@@ -128,10 +171,10 @@ export default({
     
 
     normalizeCityName(city){
-      const normalize = city
-      const first = normalize[0].toUpperCase() + normalize.slice(1)
-      return first
+      const str = city.replace(/( |^)[а-яёa-z]/g, function(x){ return x.toUpperCase(); }  );
+      return str
     },
+
 
 
     currentDate() {
@@ -143,31 +186,42 @@ export default({
 
     currentTime(){
       const today = new Date();
-      const mounth = today.toLocaleDateString('en-GB', { month: 'short'}).replace(/ /g, ' ');
-      const hour = today.toLocaleTimeString('en-GB', { hour: 'numeric'}).replace(/ /g, ' ');
-      console.log('here', hour)
+      const hour = today.getHours()
       return hour
       
     },
-    
+
+    filteredCities(){
+      return this.weathers.filter( searchCity => searchCity.city.includes(this.filter) )
+    }
+
+
   },
 
   mounted() {
-      fetch(this.urlKyiv)
-        .then((response) => response.json())
-        .then((data) => {
-          const currentDegreeKyiv = this.weathers[0]
-          currentDegreeKyiv.degree = `${Math.round(data.hourly.temperature_2m[this.currentTime()])} °C`
-        })
-
-
-      fetch(this.urlLviv)
+    fetch(this.urlKyiv)
       .then((response) => response.json())
-        .then((data) => {
-          const currentDegreeLviv = this.weathers[1]
-          currentDegreeLviv.degree = `${Math.round(data.hourly.temperature_120m[this.currentTime()])} °C`
-        });
+      .then((data) => {
+        const currentSituationKyiv = this.weathers.find(city => city.city == "Kyiv")
+        currentSituationKyiv.degree = `${Math.round(data.hourly.temperature_2m[this.currentTime()])} °C`
+        
+        const weatherCode = data.hourly.weathercode[this.currentTime()]
+        this.getCodePath(weatherCode)
+        currentSituationKyiv.gif = `./src/gifs/${weatherCode}.gif`         
+      }),
 
+      
+    fetch(this.urlLviv)
+      .then((response) => response.json())
+      .then((data) => {
+        const currentSituationLviv = this.weathers.find(city => city.city == "Lviv")
+        currentSituationLviv.degree = `${Math.round(data.hourly.temperature_120m[this.currentTime()])} °C`
+        
+        const weatherCode = data.hourly.weathercode[this.currentTime()]
+        currentSituationLviv.gif = `./src/gifs/${weatherCode}.gif` 
+          
+      });
+  
   },
 
 
@@ -185,7 +239,7 @@ export default({
 <template>
   <div class="wrapper">
     <div class="bgImg">
-      <img src="./assets/world.svg" alt="" class="bgImage">
+      <img src="./images/world.svg" alt="" class="bgImage">
       <div class="header__title ">
         <p>World</p>
         <p>weather</p>
@@ -213,22 +267,24 @@ export default({
           <Transition>
             <p class="alert" v-if="cityIsUnknown" :style="{'color': activeColor}">Unknown city</p>
           </Transition>
-          <!-- <div class="filter"> <button class="pageButton">Назад</button> <button class="filterButton">Вперед</button> </div> <div class="filterInput"> Фильтр: <input type="text" /> </div> -->
+
+          <div class="filter">Filter: <input type="text" v-model="filter" /></div>
+
               <!-- <div class="header__spreadsheet head"> 
                 <div class="head__date"> Date:</div>
                 <div class="head__city">Your city:</div>
                 <div class="head__degree">Degrees:</div>
                 <div class="head__icon" >Weather:</div>
             </div> -->
-            <div class="spreadsheet__wrapper" v-for="(weather, idx) in weathers" v-bind:key="idx">
+            <div class="spreadsheet__wrapper" v-for="(weather, idx) in filteredCities()" v-bind:key="idx">
               <div class="header__spreadsheet spreadsheet"> 
                 <div class="date"> {{ weather.date }}</div>
                 <div class="city">{{ weather.city }}</div>
                 <div class="degree">{{ weather.degree }}</div>
-                <div class="icon" style="width: 100%"><img src="./assets/sun_weather.svg" alt="sun" class="weatherIcon"></div>
+                <div class="icon" style="width: 100%"><img :src="weather.gif" :alt="icon" class="weatherIcon"></div>
                 <div class="icon-delete">
                   <button v-on:click="deleteCity(weather)" class="button__delete" type="button">
-                    <div><img src="./assets/delete.svg" alt=""></div>
+                    <div><img src="./images/delete.svg" alt=""></div>
                   </button>
                 </div>
               </div>
@@ -240,7 +296,7 @@ export default({
   
 </template>
 
-<style scoped>
+<style scoped lang="scss"> 
 
 
 
@@ -261,7 +317,7 @@ export default({
 
   .bgImage{
     width: 100vw;
-    height: 30vw;
+    height: 25vw;
 
   }
 
@@ -276,29 +332,30 @@ export default({
     justify-content: start;
     margin-left: 20vw;
     position: absolute;
+    font-family: 'Montserrat', sans-serif;
 
   }
 
   .filter{
-    margin: 1vw 0 0 0;
+    font-family: 'Montserrat', sans-serif;
+    margin: 1vw 0 0 1vw;
+    
     display: flex;
     justify-content: start;
-
+    align-items: center;
   }
 
-  .filter > button{
-    margin: 0 1vw 0 1vw;
-    padding: 0 1vw 0;
-    background-color: rgba(42,96,117,0.9753035003063726);
-    border-color: transparent;
-    border-radius: 40px;
+  .filter{ 
+    input {
+      border-radius: 40px;
+      border: 1px solid black;
+      width: 10vw;
+      margin: 0 0 0 1vw;
+      padding: 0 7px 0;
+      font-family: 'Manrope', sans-serif;
+      font-size: 16px;
+    }
   }
-
-  .filter > input {
-    border-radius: 40px;
-    border: 1px solid black;
-  }
-
 
 
   .header__spreadsheet-wrapper{
@@ -325,7 +382,7 @@ export default({
     color: white;
     position: absolute;
     top: 3.5vw;
-    margin: 0vw 0 0 6vw;
+    margin: 0vw 0 0 5vw;
   }
   .header__title p {
     padding-bottom: 3vw;
@@ -337,7 +394,7 @@ export default({
     text-align: center;
     align-items: center;
 
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: bold;
     font-size: 16px;
     margin: 6vw 0 0vw 0;
@@ -345,16 +402,19 @@ export default({
 
   }
 
-  .header__spreadsheet > div{
-    max-width: 11vw;
+  .header__spreadsheet{
+    div{
+      max-width: 11vw;
+      
+    }
   }
   .head > div {
     margin: 0 1vw 0 17vw;
   }
 
   .spreadsheet {
-    font-family: 'Abril Fatface', cursive;
-    font-weight: bold;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
     font-size: 20px;
 
     background: rgb(8,73,98);
@@ -380,8 +440,10 @@ export default({
     margin: 0 0 0 4vw !important;
   }
   .city{
+
   }
   .degree{
+  
   }
   .icon{
   
@@ -449,10 +511,10 @@ export default({
 
   .button__text{
     padding: 0.5vw 1vw;
-    font-family: 'Abril Fatface', cursive;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 400;
     color: black;
     text-transform: uppercase;
-    letter-spacing: 5px;
     position: relative;
     z-index: 2;
     /* box-shadow: 0 0 5px rgba(0, 0, 0, 0.4); */
