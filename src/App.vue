@@ -9,7 +9,7 @@ export default({
             date: this.currentDate(),
             city: "Kyiv",
             degree: "-",
-            gif: "" , 
+            gif: "" ,  
           },
           { 
             id: 2,
